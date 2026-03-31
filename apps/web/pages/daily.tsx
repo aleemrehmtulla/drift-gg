@@ -90,7 +90,7 @@ export default function DailyPage() {
     }
   }, [game.results?.gameId, loadPage]);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     playClick();
     const trimmed = name.trim();
     if (!trimmed) {
@@ -99,7 +99,11 @@ export default function DailyPage() {
     }
     setStoredName(trimmed);
     const seed = getDailySeed(todayDateString());
-    game.startSolo(trimmed, { seed });
+    const ok = await game.startSolo(trimmed, { seed });
+    if (!ok) {
+      setError("Couldn't start audio. Tap to try again.");
+      return;
+    }
     setStarted(true);
   }, [game, name, playClick]);
 

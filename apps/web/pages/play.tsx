@@ -86,7 +86,7 @@ export default function PlayPage({ og, challenge }: PlayPageProps) {
     setName(getStoredName());
   }, []);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     playClick();
     const trimmed = name.trim();
     if (!trimmed) {
@@ -97,11 +97,15 @@ export default function PlayPage({ og, challenge }: PlayPageProps) {
     const seedNum = typeof seed === "string" ? parseInt(seed, 10) : undefined;
     const challengeId =
       challenge?.gameId ?? (typeof challengeSourceId === "string" ? challengeSourceId : undefined);
-    game.startSolo(trimmed, {
+    const ok = await game.startSolo(trimmed, {
       seed: seedNum,
       challengeSourceId: challengeId,
       bpm: challenge?.targetBpm,
     });
+    if (!ok) {
+      setError("Couldn't start audio. Tap to try again.");
+      return;
+    }
     setStarted(true);
   }, [game, seed, challengeSourceId, challenge, name, playClick]);
 

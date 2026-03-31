@@ -19,6 +19,7 @@ import { useSocket } from "./useSocket";
 import { useAudioEngine } from "./useAudioEngine";
 import { useHaptics } from "./useHaptics";
 import { useTapRecorder } from "./useTapRecorder";
+import { ensureAudioReady } from "@/lib/audio";
 import { getStoredName } from "@/lib/storage";
 import { getSocket } from "@/lib/socket";
 
@@ -163,8 +164,10 @@ export function useGameState(difficulty: Difficulty = "hard") {
   }, [emit]);
 
   const startSolo = useCallback(
-    (playerName: string, opts?: { seed?: number; challengeSourceId?: string; bpm?: number }) => {
-      audio.warmUp();
+    async (playerName: string, opts?: { seed?: number; challengeSourceId?: string; bpm?: number }): Promise<boolean> => {
+      const ready = await ensureAudioReady();
+      if (!ready) return false;
+
       tapRecorder.reset();
       serverRespondedRef.current = false;
       clearGameTimers();
@@ -313,6 +316,8 @@ export function useGameState(difficulty: Difficulty = "hard") {
           COUNTDOWN_DURATION + durations.phase1 + durations.phase2,
         ),
       );
+
+      return true;
     },
     [
       emit,

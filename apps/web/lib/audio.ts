@@ -116,6 +116,26 @@ export function warmUpAudio(): Promise<void> {
   return resumeAudioContext();
 }
 
+function ctxIsRunning(ctx: AudioContext): boolean {
+  return ctx.state === "running";
+}
+
+export async function ensureAudioReady(): Promise<boolean> {
+  try {
+    configurePlaybackAudioSession();
+    const ctx = getAudioContext();
+    if (ctxIsRunning(ctx)) return true;
+    await ctx.resume();
+    primeAudioContext(ctx);
+    flushPendingCallbacks(ctx);
+    if (ctxIsRunning(ctx)) return true;
+    await new Promise((r) => setTimeout(r, 100));
+    return ctxIsRunning(ctx);
+  } catch {
+    return false;
+  }
+}
+
 /** Resolves once the AudioContext is in "running" state (idempotent, deduped). */
 export function resumeAudioContext(): Promise<void> {
   let ctx: AudioContext;
