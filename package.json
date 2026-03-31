@@ -1,0 +1,21 @@
+{
+  "name": "drift",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "prettier": "^3.7.4",
+    "turbo": "^2.8.21",
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  }
+}

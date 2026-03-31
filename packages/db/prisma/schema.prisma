@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Game {
+  id                String    @id @default(cuid())
+
+  code              String?   @unique
+  shareCode         String?   @unique @db.VarChar(7)
+  mode              String
+  difficulty        String    @default("hard")
+  status            String    @default("waiting")
+
+  targetBpm         Int
+
+  seed              Int?
+
+  dailyDate         String?   @db.VarChar(10)
+
+  challengeSourceId String?
+  challengeSource   Game?     @relation("ChallengeChain", fields: [challengeSourceId], references: [id])
+  challenges        Game[]    @relation("ChallengeChain")
+
+  createdAt         DateTime  @default(now())
+  finishedAt        DateTime?
+
+  players           Player[]
+
+  @@index([dailyDate])
+  @@index([createdAt])
+  @@index([challengeSourceId])
+}
+
+model Player {
+  id              String    @id @default(cuid())
+
+  gameId          String
+  game            Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  name            String    @db.VarChar(20)
+  sessionId       String
+  isHost          Boolean   @default(false)
+
+  score           Int?
+  achievedBpmX100 Int?
+  driftMs         Int?
+  stdDevMsX100    Int?
+  tapCount        Int?
+  tapTimestamps   Json?
+
+  createdAt       DateTime  @default(now())
+
+  @@index([gameId])
+}

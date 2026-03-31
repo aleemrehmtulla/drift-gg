@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f9fafb;
+  --text: #0a0a0a;
+  --text-muted: #6b7280;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --accent-glow: rgba(37, 99, 235, 0.15);
+  --error: #ef4444;
+  --success: #10b981;
+  --border: #e5e7eb;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+*:focus,
+*:focus-visible,
+*:focus-within {
+  outline: none !important;
+  outline-offset: 0 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent);
+  color: #ffffff;
+}
