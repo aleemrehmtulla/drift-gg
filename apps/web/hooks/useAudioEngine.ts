@@ -32,8 +32,12 @@ export function useAudioEngine() {
       osc.stop(t + duration);
     };
 
-    if (ctx.state === "suspended") {
-      resumeAudioContext().then(() => play(ctx.currentTime));
+    if (ctx.state !== "running") {
+      void resumeAudioContext().then(() => {
+        if (ctx.state === "running") {
+          play(Math.max(time, ctx.currentTime));
+        }
+      });
     } else {
       play(time);
     }
