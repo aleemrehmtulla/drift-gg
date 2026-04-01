@@ -165,8 +165,7 @@ export function useGameState(difficulty: Difficulty = "hard") {
 
   const startSolo = useCallback(
     async (playerName: string, opts?: { seed?: number; challengeSourceId?: string; bpm?: number }): Promise<boolean> => {
-      const ready = await ensureAudioReady();
-      if (!ready) return false;
+      await ensureAudioReady().catch(() => {});
 
       tapRecorder.reset();
       serverRespondedRef.current = false;

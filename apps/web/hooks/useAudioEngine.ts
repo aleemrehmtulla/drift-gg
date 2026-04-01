@@ -8,7 +8,7 @@ export function useAudioEngine() {
   const nextBeatTimeRef = useRef(0);
   const beatIntervalRef = useRef(0);
   const isRunningRef = useRef(false);
-  const beatQueueRef = useRef<number[]>([]);
+  const nextVisualBeatRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const beatOffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isBeat, setIsBeat] = useState(false);
@@ -25,15 +25,14 @@ export function useAudioEngine() {
   const startVisualSync = useCallback(() => {
     const tick = () => {
       if (!isRunningRef.current) return;
-      const now = getAudioTime();
-      while (beatQueueRef.current.length > 0 && beatQueueRef.current[0]! < now) {
-        beatQueueRef.current.shift();
+      const now = performance.now() / 1000;
+      while (nextVisualBeatRef.current > 0 && nextVisualBeatRef.current <= now) {
         setIsBeat(true);
         hapticBeat();
         if (beatOffTimerRef.current) clearTimeout(beatOffTimerRef.current);
         beatOffTimerRef.current = setTimeout(() => setIsBeat(false), 100);
+        nextVisualBeatRef.current += beatIntervalRef.current;
       }
-
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -41,10 +40,12 @@ export function useAudioEngine() {
 
   const start = useCallback((bpm: number) => {
     beatIntervalRef.current = 60 / bpm;
-    nextBeatTimeRef.current = getAudioTime() + 0.05;
     isRunningRef.current = true;
-    beatQueueRef.current = [];
 
+    nextVisualBeatRef.current = performance.now() / 1000 + 0.05;
+    startVisualSync();
+
+    nextBeatTimeRef.current = getAudioTime() + 0.05;
     schedulerRef.current = setInterval(() => {
       if (!isRunningRef.current) return;
       const now = getAudioTime();
@@ -55,12 +56,9 @@ export function useAudioEngine() {
           AUDIO.BEAT_DURATION,
           AUDIO.BEAT_GAIN
         );
-        beatQueueRef.current.push(nextBeatTimeRef.current);
         nextBeatTimeRef.current += beatIntervalRef.current;
       }
     }, AUDIO.CHECK_INTERVAL_MS);
-
-    startVisualSync();
   }, [scheduleClick, startVisualSync]);
 
   const stop = useCallback(() => {
@@ -69,7 +67,7 @@ export function useAudioEngine() {
       clearInterval(schedulerRef.current);
       schedulerRef.current = null;
     }
-    beatQueueRef.current = [];
+    nextVisualBeatRef.current = 0;
     setIsBeat(false);
   }, []);
 
