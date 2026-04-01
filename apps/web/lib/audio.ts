@@ -1,8 +1,8 @@
 let sharedCtx: AudioContext | null = null;
 let muted = false;
+let resumePromise: Promise<void> | null = null;
 let stateListenerAttached = false;
 let playbackSessionConfigured = false;
-let primed = false;
 const pendingCallbacks: Array<(ctx: AudioContext) => void> = [];
 const AUDIO_UNLOCK_EVENTS = ["pointerup", "touchend", "click", "mouseup"] as const;
 
@@ -51,7 +51,6 @@ function getAudioConstructor(): typeof AudioContext | null {
 }
 
 function primeAudioContext(ctx: AudioContext): void {
-  if (primed) return;
   try {
     const osc = ctx.createOscillator();
     const gainNode = ctx.createGain();
@@ -60,7 +59,6 @@ function primeAudioContext(ctx: AudioContext): void {
     gainNode.connect(ctx.destination);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.001);
-    primed = true;
   } catch {}
 }
 
@@ -88,18 +86,6 @@ function attachStateListener(ctx: AudioContext): void {
 function unlockAudio(): void {
   configurePlaybackAudioSession();
   void resumeAudioContext();
-}
-
-/** Like unlockAudio but skips AudioContext creation — safe for non-gesture
- *  events (focus, visibilitychange) that can't actually unlock audio. */
-function tryResumeExisting(): void {
-  if (!sharedCtx || sharedCtx.state === "running") return;
-  configurePlaybackAudioSession();
-  void sharedCtx.resume().then(() => {
-    if (sharedCtx?.state === "running") {
-      flushPendingCallbacks(sharedCtx);
-    }
-  }).catch(() => {});
 }
 
 export function getAudioContext(): AudioContext {
@@ -139,43 +125,18 @@ export async function ensureAudioReady(): Promise<boolean> {
     configurePlaybackAudioSession();
     const ctx = getAudioContext();
     if (ctxIsRunning(ctx)) return true;
-
-    for (let attempt = 0; attempt < 4; attempt++) {
-      await ctx.resume();
-      primeAudioContext(ctx);
-      flushPendingCallbacks(ctx);
-      if (ctxIsRunning(ctx)) return true;
-      await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
-      if (ctxIsRunning(ctx)) return true;
-    }
-
-    // Final wait — listen for the statechange event as a fallback
-    if (!ctxIsRunning(ctx)) {
-      await new Promise<void>((resolve) => {
-        const timeout = setTimeout(resolve, 500);
-        const onState = () => {
-          if (ctx.state === "running") {
-            clearTimeout(timeout);
-            ctx.removeEventListener("statechange", onState);
-            resolve();
-          }
-        };
-        ctx.addEventListener("statechange", onState);
-      });
-    }
-
-    if (ctxIsRunning(ctx)) {
-      primeAudioContext(ctx);
-      flushPendingCallbacks(ctx);
-    }
+    await ctx.resume();
+    primeAudioContext(ctx);
+    flushPendingCallbacks(ctx);
+    if (ctxIsRunning(ctx)) return true;
+    await new Promise((r) => setTimeout(r, 100));
     return ctxIsRunning(ctx);
   } catch {
     return false;
   }
 }
 
-/** Resolves once the AudioContext is in "running" state. Always calls
- *  ctx.resume() so the current user-gesture context is never wasted. */
+/** Resolves once the AudioContext is in "running" state (idempotent, deduped). */
 export function resumeAudioContext(): Promise<void> {
   let ctx: AudioContext;
 
@@ -190,12 +151,23 @@ export function resumeAudioContext(): Promise<void> {
     return Promise.resolve();
   }
 
-  return ctx.resume().then(() => {
-    if (ctx.state === "running") {
-      primeAudioContext(ctx);
-      flushPendingCallbacks(ctx);
+  if (resumePromise) return resumePromise;
+
+  resumePromise = (async () => {
+    try {
+      await ctx.resume();
+      if (ctx.state === "running") {
+        primeAudioContext(ctx);
+        flushPendingCallbacks(ctx);
+      }
+    } catch {
+      // Allow a future user gesture to retry unlocking audio.
+    } finally {
+      resumePromise = null;
     }
-  }).catch(() => {});
+  })();
+
+  return resumePromise;
 }
 
 /** Calls `fn` immediately if the context is running, otherwise after resume. */
@@ -256,10 +228,10 @@ if (typeof window !== "undefined") {
     document.addEventListener(evt, unlockAudio, { capture: true, passive: true }),
   );
   document.addEventListener("keydown", unlockAudio, { capture: true });
-  window.addEventListener("focus", tryResumeExisting);
+  window.addEventListener("focus", unlockAudio);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
-      tryResumeExisting();
+      unlockAudio();
     }
   });
 }
